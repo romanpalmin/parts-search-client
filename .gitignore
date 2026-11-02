@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-ssr/
+JOURNAL.md
+CLAUDE.md
+docs/
+.claude/
+.env
+.env.local
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
