@@ -1,3 +1,4 @@
+import OffersTable from './features/offers/OffersTable.jsx';
 import BrandList from './features/search/BrandList.jsx';
 import SearchForm from './features/search/SearchForm.jsx';
 import SearchStatus from './features/search/SearchStatus.jsx';
@@ -9,6 +10,7 @@ export default function App() {
       <SearchForm />
       <SearchStatus />
       <BrandList />
+      <OffersTable />
     </main>
   );
 }
