@@ -117,4 +117,69 @@ describe('fetchGoods', () => {
       await expect(fetchGoods({ number: '01089' })).rejects.toThrow('некорректный ответ');
     });
   });
+
+  describe('пограничные случаи из реальных ответов', () => {
+    const warehouse = {
+      code: 'MSK',
+      id: '1',
+      own: true,
+      price: 540.5,
+      stock: 12,
+      shipmentDate: '2026-11-05T00:00:00+03:00',
+    };
+    const febi = {
+      goodsID: 'g1',
+      brand: 'FEBI',
+      number: '01089',
+      name: 'Деталь',
+      count: 12,
+      price: 0,
+      rate: 1,
+      warehouses: [warehouse],
+    };
+    const glaser = {
+      goodsID: 'g2',
+      brand: 'GLASER',
+      number: 'H01089-00',
+      name: 'Деталь',
+      count: 3,
+      price: 0,
+      rate: 1,
+      warehouses: [warehouse],
+    };
+    const outOfStock = {
+      goodsID: 'g3',
+      brand: 'AP',
+      number: '01089',
+      name: 'Деталь',
+      count: 0,
+      price: 0,
+      rate: 1,
+      warehouses: [],
+    };
+
+    test('позиции без остатка и с другим number не отбрасываются и не меняются', async () => {
+      server.use(http.get(API_URL, () => HttpResponse.json({ goods: [febi, glaser, outOfStock] })));
+
+      const goods = await fetchGoods({ number: '01089' });
+
+      expect(goods).toEqual([febi, glaser, outOfStock]);
+      expect(goods[1].number).toBe('H01089-00');
+      expect(goods[2]).toMatchObject({ count: 0, warehouses: [] });
+    });
+
+    test('бренд с & доходит до сервера целым', async () => {
+      let receivedBrand;
+      server.use(
+        http.get(API_URL, ({ request }) => {
+          receivedBrand = new URL(request.url).searchParams.get('brand');
+          return HttpResponse.json({ goods: [febi] });
+        }),
+      );
+
+      await fetchGoods({ number: '01089', brand: 'Meat & Doria', analogues: true });
+
+      expect(receivedBrand).toBe('Meat & Doria');
+    });
+  });
 });
