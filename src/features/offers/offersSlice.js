@@ -1,6 +1,7 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit';
 import { fetchGoods } from '../../api/partsApi.js';
 import { fetchBrands } from '../search/searchSlice.js';
+import { compareRows, flattenGoods, toRow } from './offerRules.js';
 
 // Этап 2: по введённому номеру и выбранному производителю получаем позиции и аналоги
 export const fetchOffers = createAsyncThunk('offers/fetchOffers', ({ number, brand }) =>
@@ -41,3 +42,9 @@ export const selectOffersStatus = (state) => state.offers.status;
 export const selectOffersError = (state) => state.offers.error;
 export const selectOffersBrand = (state) => state.offers.brand;
 export const selectOffersGoods = (state) => state.offers.goods;
+
+// Строки таблицы: позиция и аналоги, цена и остаток по правилам, отсортированные.
+// createSelector: пока goods те же, вернётся тот же массив (без лишних рендеров).
+export const selectOfferRows = createSelector([selectOffersGoods], (goods) =>
+  flattenGoods(goods).map(toRow).sort(compareRows),
+);
