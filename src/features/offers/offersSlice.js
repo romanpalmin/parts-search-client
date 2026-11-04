@@ -8,7 +8,8 @@ export const fetchOffers = createAsyncThunk('offers/fetchOffers', ({ number, bra
   fetchGoods({ number, brand, analogues: true }),
 );
 
-const initialState = { status: 'idle', brand: null, goods: [], error: null };
+// requestId: id последнего запущенного запроса. Ответ с другим id устарел и игнорируется (гонка запросов).
+const initialState = { status: 'idle', brand: null, requestId: null, goods: [], error: null };
 
 const offersSlice = createSlice({
   name: 'offers',
@@ -19,14 +20,17 @@ const offersSlice = createSlice({
       .addCase(fetchOffers.pending, (state, action) => {
         state.status = 'loading';
         state.brand = action.meta.arg.brand;
+        state.requestId = action.meta.requestId;
         state.goods = [];
         state.error = null;
       })
       .addCase(fetchOffers.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.requestId) return; // устаревший ответ
         state.status = 'succeeded';
         state.goods = action.payload;
       })
       .addCase(fetchOffers.rejected, (state, action) => {
+        if (action.meta.requestId !== state.requestId) return; // устаревший ответ
         state.status = 'failed';
         state.error = action.error.message;
       })

@@ -27,7 +27,13 @@ afterEach(() => {
 const respondWith = (response) => server.use(http.get(API_URL, () => response.clone()));
 
 test('начальное состояние: idle, без бренда, данных и ошибки', () => {
-  expect(makeStore().getState().offers).toEqual({ status: 'idle', brand: null, goods: [], error: null });
+  expect(makeStore().getState().offers).toEqual({
+    status: 'idle',
+    brand: null,
+    requestId: null,
+    goods: [],
+    error: null,
+  });
 });
 
 test('успех: сначала loading с брендом, потом succeeded с позициями', async () => {
@@ -101,6 +107,66 @@ test('повторный запрос сбрасывает прежние дан
   await next;
 });
 
+// Гонка запросов: ответ прежнего запроса приходит позже и не должен затирать актуальное состояние
+describe('устаревшие ответы', () => {
+  const glaser = { goodsID: 'g9', brand: 'GLASER', number: 'H01089-00', name: 'Глазер', count: 1, warehouses: [] };
+
+  // Ответ для GLASER ждёт, пока тест его не отпустит; остальные бренды отвечают сразу
+  const slowGlaser = (glaserResponse) => {
+    let release;
+    const gate = new Promise((resolve) => (release = resolve));
+    server.use(
+      http.get(API_URL, async ({ request }) => {
+        const brand = new URL(request.url).searchParams.get('brand');
+        if (brand === 'GLASER') {
+          await gate;
+          return glaserResponse();
+        }
+        return HttpResponse.json({ goods: [febi] });
+      }),
+    );
+    return release;
+  };
+
+  test('поздний успех прежнего бренда не затирает таблицу нового', async () => {
+    const release = slowGlaser(() => HttpResponse.json({ goods: [glaser] }));
+    const store = makeStore();
+
+    const first = store.dispatch(fetchOffers({ number: '01089', brand: 'GLASER' }));
+    await store.dispatch(fetchOffers({ number: '01089', brand: 'FEBI' }));
+    release();
+    await first;
+
+    expect(selectOffersBrand(store.getState())).toBe('FEBI');
+    expect(selectOffersGoods(store.getState())).toEqual([febi]);
+  });
+
+  test('поздняя ошибка прежнего бренда не ломает таблицу нового', async () => {
+    const release = slowGlaser(() => HttpResponse.json({ error: 'Сбой' }, { status: 500 }));
+    const store = makeStore();
+
+    const first = store.dispatch(fetchOffers({ number: '01089', brand: 'GLASER' }));
+    await store.dispatch(fetchOffers({ number: '01089', brand: 'FEBI' }));
+    release();
+    await first;
+
+    expect(selectOffersStatus(store.getState())).toBe('succeeded');
+    expect(selectOffersError(store.getState())).toBeNull();
+  });
+
+  test('ответ, пришедший после нового поиска брендов, не возвращает старую таблицу', async () => {
+    const release = slowGlaser(() => HttpResponse.json({ goods: [glaser] }));
+    const store = makeStore();
+
+    const offers = store.dispatch(fetchOffers({ number: '01089', brand: 'GLASER' }));
+    await store.dispatch(fetchBrands('999'));
+    release();
+    await offers;
+
+    expect(store.getState().offers).toMatchObject({ status: 'idle', brand: null, goods: [], error: null });
+  });
+});
+
 test('новый поиск брендов сбрасывает таблицу этапа 2', async () => {
   const store = makeStore();
   respondWith(HttpResponse.json({ goods: [febi] }));
@@ -109,6 +175,12 @@ test('новый поиск брендов сбрасывает таблицу �
 
   const promise = store.dispatch(fetchBrands('999'));
 
-  expect(store.getState().offers).toEqual({ status: 'idle', brand: null, goods: [], error: null });
+  expect(store.getState().offers).toEqual({
+    status: 'idle',
+    brand: null,
+    requestId: null,
+    goods: [],
+    error: null,
+  });
   await promise;
 });
