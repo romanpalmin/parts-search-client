@@ -4,8 +4,17 @@ import { fetchBrands } from '../search/searchSlice.js';
 import { compareRows, flattenGoods, toRow } from './offerRules.js';
 
 // Этап 2: по введённому номеру и выбранному производителю получаем позиции и аналоги
-export const fetchOffers = createAsyncThunk('offers/fetchOffers', ({ number, brand }) =>
-  fetchGoods({ number, brand, analogues: true }),
+export const fetchOffers = createAsyncThunk(
+  'offers/fetchOffers',
+  ({ number, brand }) => fetchGoods({ number, brand, analogues: true }),
+  {
+    // Тот же производитель уже грузится или загружен: повторный запрос не нужен (thunk не запустится, действий не будет).
+    // После ошибки повторить можно.
+    condition: ({ brand }, { getState }) => {
+      const offers = getState().offers;
+      return !(brand === offers.brand && offers.status !== 'failed');
+    },
+  },
 );
 
 // requestId: id последнего запущенного запроса. Ответ с другим id устарел и игнорируется (гонка запросов).

@@ -107,6 +107,82 @@ test('повторный запрос сбрасывает прежние дан
   await next;
 });
 
+// Повторный выбор того же производителя не должен слать лишний запрос (кроме повтора после ошибки)
+describe('повторный запрос того же производителя', () => {
+  // Считаем только запросы второго этапа (с brand); ответы берём по очереди из списка
+  const serveCounting = (responses) => {
+    let count = 0;
+    server.use(
+      http.get(API_URL, ({ request }) => {
+        if (!new URL(request.url).searchParams.get('brand')) return HttpResponse.json({ goods: [febi] });
+        const response = responses[Math.min(count, responses.length - 1)];
+        count += 1;
+        return response.clone();
+      }),
+    );
+    return () => count;
+  };
+  const febiQuery = { number: '01089', brand: 'FEBI' };
+
+  test('пока идёт загрузка: второй запрос не уходит', async () => {
+    const requests = serveCounting([HttpResponse.json({ goods: [febi] })]);
+    const store = makeStore();
+
+    await Promise.all([store.dispatch(fetchOffers(febiQuery)), store.dispatch(fetchOffers(febiQuery))]);
+
+    expect(requests()).toBe(1);
+  });
+
+  test('данные уже загружены: запрос не повторяется, таблица не сбрасывается', async () => {
+    const requests = serveCounting([HttpResponse.json({ goods: [febi] })]);
+    const store = makeStore();
+    await store.dispatch(fetchOffers(febiQuery));
+
+    const promise = store.dispatch(fetchOffers(febiQuery));
+
+    expect(selectOffersStatus(store.getState())).toBe('succeeded');
+    expect(selectOffersGoods(store.getState())).toEqual([febi]);
+    await promise;
+    expect(requests()).toBe(1);
+  });
+
+  test('после ошибки тот же производитель запрашивается снова', async () => {
+    const requests = serveCounting([
+      HttpResponse.json({ error: 'Сбой' }, { status: 500 }),
+      HttpResponse.json({ goods: [febi] }),
+    ]);
+    const store = makeStore();
+    await store.dispatch(fetchOffers(febiQuery));
+    expect(selectOffersStatus(store.getState())).toBe('failed');
+
+    await store.dispatch(fetchOffers(febiQuery));
+
+    expect(requests()).toBe(2);
+    expect(selectOffersStatus(store.getState())).toBe('succeeded');
+  });
+
+  test('другой производитель запрашивается', async () => {
+    const requests = serveCounting([HttpResponse.json({ goods: [febi] })]);
+    const store = makeStore();
+    await store.dispatch(fetchOffers(febiQuery));
+
+    await store.dispatch(fetchOffers({ number: '01089', brand: 'MANN' }));
+
+    expect(requests()).toBe(2);
+  });
+
+  test('после нового поиска брендов тот же производитель запрашивается снова', async () => {
+    const requests = serveCounting([HttpResponse.json({ goods: [febi] })]);
+    const store = makeStore();
+    await store.dispatch(fetchOffers(febiQuery));
+    await store.dispatch(fetchBrands('999'));
+
+    await store.dispatch(fetchOffers(febiQuery));
+
+    expect(requests()).toBe(2);
+  });
+});
+
 // Гонка запросов: ответ прежнего запроса приходит позже и не должен затирать актуальное состояние
 describe('устаревшие ответы', () => {
   const glaser = { goodsID: 'g9', brand: 'GLASER', number: 'H01089-00', name: 'Глазер', count: 1, warehouses: [] };

@@ -114,6 +114,20 @@ test('клик по бренду: запрос с введённым номер�
   expect(requests[0]).toMatchObject({ number: '01089', brand: 'GLASER', analogues: 'on' });
 });
 
+test('повторный клик по выбранному производителю не перезагружает таблицу', async () => {
+  const requests = serve();
+  const { search, choose } = await setup();
+  await search('01089');
+  await choose('GLASER');
+  await screen.findByRole('table');
+
+  await choose('GLASER');
+
+  expect(screen.getByRole('table')).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(requests).toHaveLength(1);
+});
+
 test('таблица: аналоги и позиция, в наличии по цене, «нет в наличии» в конце, цена «—»', async () => {
   serve();
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
