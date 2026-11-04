@@ -6,8 +6,13 @@ export const fetchBrands = createAsyncThunk('search/fetchBrands', (number) => fe
 
 const searchSlice = createSlice({
   name: 'search',
-  initialState: { status: 'idle', number: '', goods: [], error: null },
-  reducers: {},
+  initialState: { status: 'idle', number: '', goods: [], error: null, selectedBrand: null },
+  reducers: {
+    // Свои действия slice (в отличие от extraReducers, которые реагируют на thunk)
+    brandSelected: (state, action) => {
+      state.selectedBrand = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchBrands.pending, (state, action) => {
@@ -16,6 +21,7 @@ const searchSlice = createSlice({
         state.status = 'loading';
         state.goods = [];
         state.error = null;
+        state.selectedBrand = null; // новый поиск сбрасывает выбор из прошлой выдачи
       })
       .addCase(fetchBrands.fulfilled, (state, action) => {
         state.status = 'succeeded';
@@ -29,10 +35,12 @@ const searchSlice = createSlice({
 });
 
 export default searchSlice.reducer;
+export const { brandSelected } = searchSlice.actions;
 
 export const selectStatus = (state) => state.search.status;
 export const selectError = (state) => state.search.error;
 export const selectNumber = (state) => state.search.number;
+export const selectSelectedBrand = (state) => state.search.selectedBrand;
 const selectGoods = (state) => state.search.goods;
 
 // Производители без повторов, в порядке ответа.

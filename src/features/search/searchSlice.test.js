@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { server } from '../../test/server.js';
 import { makeStore } from '../../store.js';
-import { fetchBrands } from './searchSlice.js';
+import { brandSelected, fetchBrands } from './searchSlice.js';
 
 const API_URL = 'http://api.example.com/hs/hsprice/';
 const febi = { goodsID: 'g1', brand: 'FEBI', number: '01089', name: 'Деталь', count: 12, warehouses: [] };
@@ -19,7 +19,13 @@ afterEach(() => {
 const respondWith = (response) => server.use(http.get(API_URL, () => response.clone()));
 
 test('начальное состояние: idle, без данных и ошибки', () => {
-  expect(makeStore().getState().search).toEqual({ status: 'idle', number: '', goods: [], error: null });
+  expect(makeStore().getState().search).toEqual({
+    status: 'idle',
+    number: '',
+    goods: [],
+    error: null,
+    selectedBrand: null,
+  });
 });
 
 test('успех: сначала loading, потом succeeded с позициями', async () => {
@@ -30,7 +36,13 @@ test('успех: сначала loading, потом succeeded с позиция
   expect(store.getState().search.status).toBe('loading');
 
   await promise;
-  expect(store.getState().search).toEqual({ status: 'succeeded', number: '01089', goods: [febi], error: null });
+  expect(store.getState().search).toEqual({
+    status: 'succeeded',
+    number: '01089',
+    goods: [febi],
+    error: null,
+    selectedBrand: null,
+  });
 });
 
 test('ничего не найдено: это succeeded с пустым списком, не ошибка', async () => {
@@ -39,7 +51,13 @@ test('ничего не найдено: это succeeded с пустым спи�
 
   await store.dispatch(fetchBrands('ZZZ'));
 
-  expect(store.getState().search).toEqual({ status: 'succeeded', number: 'ZZZ', goods: [], error: null });
+  expect(store.getState().search).toEqual({
+    status: 'succeeded',
+    number: 'ZZZ',
+    goods: [],
+    error: null,
+    selectedBrand: null,
+  });
 });
 
 test('ошибка сервиса: failed с текстом ошибки', async () => {
@@ -64,6 +82,25 @@ test('введённый номер сохраняется сразу и ост�
   await promise;
   expect(store.getState().search.status).toBe('failed');
   expect(store.getState().search.number).toBe('01089');
+});
+
+test('brandSelected запоминает выбранного производителя', () => {
+  const store = makeStore();
+
+  store.dispatch(brandSelected('FEBI'));
+
+  expect(store.getState().search.selectedBrand).toBe('FEBI');
+});
+
+test('новый поиск сбрасывает выбранного производителя', async () => {
+  respondWith(HttpResponse.json({ goods: [febi] }));
+  const store = makeStore();
+  await store.dispatch(fetchBrands('01089'));
+  store.dispatch(brandSelected('FEBI'));
+
+  const promise = store.dispatch(fetchBrands('01089'));
+  expect(store.getState().search.selectedBrand).toBeNull();
+  await promise;
 });
 
 test('новый поиск перезаписывает номер', async () => {
