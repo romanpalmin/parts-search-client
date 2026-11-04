@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit';
 import { fetchGoods } from '../../api/partsApi.js';
 
 // Этап 1: по артикулу получаем позиции (из них потом выберем производителей)
@@ -27,3 +27,11 @@ const searchSlice = createSlice({
 });
 
 export default searchSlice.reducer;
+
+export const selectStatus = (state) => state.search.status;
+export const selectError = (state) => state.search.error;
+const selectGoods = (state) => state.search.goods;
+
+// Производители без повторов, в порядке ответа.
+// createSelector кэширует результат: пока goods не изменились, вернётся тот же массив (не вызывает лишних рендеров).
+export const selectBrands = createSelector([selectGoods], (goods) => [...new Set(goods.map((good) => good.brand))]);
