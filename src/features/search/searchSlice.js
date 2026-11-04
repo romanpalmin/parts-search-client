@@ -6,11 +6,13 @@ export const fetchBrands = createAsyncThunk('search/fetchBrands', (number) => fe
 
 const searchSlice = createSlice({
   name: 'search',
-  initialState: { status: 'idle', goods: [], error: null },
+  initialState: { status: 'idle', number: '', goods: [], error: null },
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchBrands.pending, (state) => {
+      .addCase(fetchBrands.pending, (state, action) => {
+        // meta.arg: то, с чем вызвали thunk (введённый номер). Нужен на этапе 2.
+        state.number = action.meta.arg;
         state.status = 'loading';
         state.goods = [];
         state.error = null;
@@ -30,6 +32,7 @@ export default searchSlice.reducer;
 
 export const selectStatus = (state) => state.search.status;
 export const selectError = (state) => state.search.error;
+export const selectNumber = (state) => state.search.number;
 const selectGoods = (state) => state.search.goods;
 
 // Производители без повторов, в порядке ответа.

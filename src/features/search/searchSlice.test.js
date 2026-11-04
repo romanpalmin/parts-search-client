@@ -15,10 +15,11 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const respondWith = (response) => server.use(http.get(API_URL, () => response));
+// clone(): тело Response читается один раз, а запросов в тесте может быть несколько
+const respondWith = (response) => server.use(http.get(API_URL, () => response.clone()));
 
 test('начальное состояние: idle, без данных и ошибки', () => {
-  expect(makeStore().getState().search).toEqual({ status: 'idle', goods: [], error: null });
+  expect(makeStore().getState().search).toEqual({ status: 'idle', number: '', goods: [], error: null });
 });
 
 test('успех: сначала loading, потом succeeded с позициями', async () => {
@@ -29,7 +30,7 @@ test('успех: сначала loading, потом succeeded с позиция
   expect(store.getState().search.status).toBe('loading');
 
   await promise;
-  expect(store.getState().search).toEqual({ status: 'succeeded', goods: [febi], error: null });
+  expect(store.getState().search).toEqual({ status: 'succeeded', number: '01089', goods: [febi], error: null });
 });
 
 test('ничего не найдено: это succeeded с пустым списком, не ошибка', async () => {
@@ -38,7 +39,7 @@ test('ничего не найдено: это succeeded с пустым спи�
 
   await store.dispatch(fetchBrands('ZZZ'));
 
-  expect(store.getState().search).toEqual({ status: 'succeeded', goods: [], error: null });
+  expect(store.getState().search).toEqual({ status: 'succeeded', number: 'ZZZ', goods: [], error: null });
 });
 
 test('ошибка сервиса: failed с текстом ошибки', async () => {
@@ -51,6 +52,28 @@ test('ошибка сервиса: failed с текстом ошибки', async
   expect(status).toBe('failed');
   expect(goods).toEqual([]);
   expect(error).toContain('Empty key!');
+});
+
+test('введённый номер сохраняется сразу и остаётся после ошибки', async () => {
+  respondWith(HttpResponse.json({ error: 'Empty key!' }, { status: 403 }));
+  const store = makeStore();
+
+  const promise = store.dispatch(fetchBrands('01089'));
+  expect(store.getState().search.number).toBe('01089');
+
+  await promise;
+  expect(store.getState().search.status).toBe('failed');
+  expect(store.getState().search.number).toBe('01089');
+});
+
+test('новый поиск перезаписывает номер', async () => {
+  respondWith(HttpResponse.json({ goods: [] }));
+  const store = makeStore();
+
+  await store.dispatch(fetchBrands('01089'));
+  await store.dispatch(fetchBrands('H01089-00'));
+
+  expect(store.getState().search.number).toBe('H01089-00');
 });
 
 test('новый поиск после ошибки сбрасывает ошибку', async () => {

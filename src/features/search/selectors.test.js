@@ -1,17 +1,18 @@
-import { selectBrands, selectError, selectStatus } from './searchSlice.js';
+import { selectBrands, selectError, selectNumber, selectStatus } from './searchSlice.js';
 
-const stateWith = (search) => ({ search: { status: 'idle', goods: [], error: null, ...search } });
+const stateWith = (search) => ({ search: { status: 'idle', number: '', goods: [], error: null, ...search } });
 
 const febi1 = { brand: 'FEBI', number: '01089', name: 'Деталь 1' };
 const febi2 = { brand: 'FEBI', number: '01089', name: 'Деталь 2' };
 const glaser = { brand: 'GLASER', number: 'H01089-00', name: 'Деталь' };
 const meat = { brand: 'Meat & Doria', number: '01089', name: 'Деталь' };
 
-describe('selectStatus и selectError', () => {
-  test('читают status и error из state.search', () => {
-    const state = stateWith({ status: 'failed', error: 'Ошибка' });
+describe('selectStatus, selectError и selectNumber', () => {
+  test('читают status, error и number из state.search', () => {
+    const state = stateWith({ status: 'failed', error: 'Ошибка', number: '01089' });
     expect(selectStatus(state)).toBe('failed');
     expect(selectError(state)).toBe('Ошибка');
+    expect(selectNumber(state)).toBe('01089');
   });
 });
 
