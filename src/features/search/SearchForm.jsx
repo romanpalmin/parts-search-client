@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { fetchBrands } from './searchSlice.js';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchBrands, selectStatus } from './searchSlice.js';
 
 export default function SearchForm() {
   const [number, setNumber] = useState('');
   const dispatch = useDispatch();
+  const isLoading = useSelector(selectStatus) === 'loading';
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -23,7 +24,7 @@ export default function SearchForm() {
         />
       </div>
       <div className="col-auto">
-        <button className="btn btn-primary" type="submit" disabled={!number.trim()}>
+        <button className="btn btn-primary" type="submit" disabled={isLoading || !number.trim()}>
           Найти
         </button>
       </div>
