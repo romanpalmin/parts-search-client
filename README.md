@@ -1,5 +1,7 @@
 # Parts Search Client
 
+[![CI](https://github.com/romanpalmin/parts-search-client/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/romanpalmin/parts-search-client/actions/workflows/ci.yml)
+
 Тестовое задание на React: поиск автозапчастей по артикулу в два этапа.
 
 1. Вводишь артикул и получаешь список производителей, у которых есть такая деталь.
