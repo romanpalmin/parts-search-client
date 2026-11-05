@@ -30,8 +30,9 @@ const stage2 = [
     name: 'Главная деталь',
     count: 29,
     warehouses: [
-      { id: 'w1', price: 1257.6, stock: 10 },
-      { id: 'w2', price: 1190.23, stock: 19 },
+      // у складов один и тот же code, различает их только id
+      { id: 'w1', code: 'МСК', price: 1257.6, stock: 10, shipmentDate: '2026-11-07T00:30:00+03:00' },
+      { id: 'w2', code: 'МСК', price: 1190.23, stock: 19, shipmentDate: '2026-11-06T00:30:00+03:00' },
     ],
     analogues: [
       good({ goodsID: 'none', brand: 'PAYEN', number: 'BC920', name: 'Аналог без остатка', price: 500 }),
@@ -154,6 +155,59 @@ test('таблица: аналоги и позиция, в наличии по �
   expect(rows[0]).not.toHaveClass('text-muted');
   expect(consoleError).not.toHaveBeenCalled(); // уникальные key у строк
   consoleError.mockRestore();
+});
+
+test('склады позиции раскрываются: по возрастанию цены, с остатком и датой отгрузки', async () => {
+  serve();
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const { search, choose } = await setup();
+  await search('01089');
+  await choose('GLASER');
+  const table = await screen.findByRole('table');
+  const [, , mainRow] = within(table).getAllByRole('row');
+
+  const summary = within(mainRow).getByText('Склады (2)');
+  const list = within(mainRow).getByRole('list');
+  expect(list).not.toBeVisible(); // свёрнуто, пока не нажали
+
+  await userEvent.click(summary);
+
+  expect(list).toBeVisible();
+  const items = within(list).getAllByRole('listitem');
+  expect(items[0]).toHaveTextContent(/^МСК: 1\s190,23, остаток 19, отгрузка 06\.11\.2026$/);
+  expect(items[1]).toHaveTextContent(/^МСК: 1\s257,60, остаток 10, отгрузка 07\.11\.2026$/);
+  expect(consoleError).not.toHaveBeenCalled(); // key по id: одинаковые code не дают предупреждения
+  consoleError.mockRestore();
+});
+
+test('склад с остатком, но без цены: в списке «—», а не «0,00»', async () => {
+  const noPrice = good({
+    goodsID: 'x',
+    name: 'Позиция без цены',
+    count: 1,
+    warehouses: [{ id: 'w9', code: 'СПБ', price: 0, stock: 1 }],
+  });
+  serve({ second: () => HttpResponse.json({ goods: [noPrice] }) });
+  const { search, choose } = await setup();
+  await search('01089');
+  await choose('GLASER');
+  const table = await screen.findByRole('table');
+
+  await userEvent.click(within(table).getByText('Склады (1)'));
+
+  expect(within(table).getByRole('listitem')).toHaveTextContent('СПБ: —, остаток 1');
+});
+
+test('у позиции без остатка списка складов нет', async () => {
+  serve();
+  const { search, choose } = await setup();
+  await search('01089');
+  await choose('GLASER');
+  const table = await screen.findByRole('table');
+  const [, , , outRow] = within(table).getAllByRole('row');
+
+  expect(outRow).toHaveTextContent('Аналог без остатка');
+  expect(within(outRow).queryByText(/Склады/)).not.toBeInTheDocument();
 });
 
 test('пока идёт запрос этапа 2: лоадер, потом таблица', async () => {

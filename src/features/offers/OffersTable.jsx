@@ -48,6 +48,20 @@ export default function OffersTable() {
                 <div className="small text-muted">
                   {row.brand}, {row.number}
                 </div>
+                {row.warehouses.length > 0 && (
+                  <details className="mt-1">
+                    <summary className="small">Склады ({row.warehouses.length})</summary>
+                    <ul className="list-unstyled small mb-0 mt-1">
+                      {row.warehouses.map((warehouse) => (
+                        <li key={warehouse.id}>
+                          {warehouse.code}: {warehouse.price === null ? '—' : formatPrice(warehouse.price)}, остаток{' '}
+                          {warehouse.stock}
+                          {warehouse.shipmentDate && `, отгрузка ${warehouse.shipmentDate}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </td>
               <td className="text-end">{row.price === null ? '—' : formatPrice(row.price)}</td>
               <td className="text-end">{row.stock > 0 ? row.stock : 'нет в наличии'}</td>
