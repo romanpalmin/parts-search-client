@@ -32,43 +32,46 @@ export default function OffersTable() {
   return (
     <section className="mt-4">
       <h2 className="h5">Аналоги и предложения: {brand}</h2>
-      <table className="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th>Название / производитель</th>
-            <th className="text-end">Цена</th>
-            <th className="text-end">Остаток</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className={row.stock > 0 ? undefined : 'text-muted'}>
-              <td>
-                <div>{row.name}</div>
-                <div className="small text-muted">
-                  {row.brand}, {row.number}
-                </div>
-                {row.warehouses.length > 0 && (
-                  <details className="mt-1">
-                    <summary className="small">Склады ({row.warehouses.length})</summary>
-                    <ul className="list-unstyled small mb-0 mt-1">
-                      {row.warehouses.map((warehouse) => (
-                        <li key={warehouse.id}>
-                          {warehouse.code}: {warehouse.price === null ? '—' : formatPrice(warehouse.price)}, остаток{' '}
-                          {warehouse.stock}
-                          {warehouse.shipmentDate && `, отгрузка ${warehouse.shipmentDate}`}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </td>
-              <td className="text-end">{row.price === null ? '—' : formatPrice(row.price)}</td>
-              <td className="text-end">{row.stock > 0 ? row.stock : 'нет в наличии'}</td>
+      {/* table-responsive: если таблица шире экрана, прокручивается она, а не вся страница */}
+      <div className="table-responsive">
+        <table className="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Название / производитель</th>
+              <th className="text-end">Цена</th>
+              <th className="text-end">Остаток</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className={row.stock > 0 ? undefined : 'text-muted'}>
+                <td>
+                  <div>{row.name}</div>
+                  <div className="small text-muted">
+                    {row.brand}, {row.number}
+                  </div>
+                  {row.warehouses.length > 0 && (
+                    <details className="mt-1">
+                      <summary className="small">Склады ({row.warehouses.length})</summary>
+                      <ul className="list-unstyled small mb-0 mt-1">
+                        {row.warehouses.map((warehouse) => (
+                          <li key={warehouse.id}>
+                            {warehouse.code}: {warehouse.price === null ? '—' : formatPrice(warehouse.price)}, остаток{' '}
+                            {warehouse.stock}
+                            {warehouse.shipmentDate && `, отгрузка ${warehouse.shipmentDate}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </td>
+                <td className="text-end">{row.price === null ? '—' : formatPrice(row.price)}</td>
+                <td className="text-end">{row.stock > 0 ? row.stock : 'нет в наличии'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

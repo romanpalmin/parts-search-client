@@ -157,6 +157,17 @@ test('таблица: аналоги и позиция, в наличии по �
   consoleError.mockRestore();
 });
 
+test('таблица в обёртке table-responsive: на узком экране прокручивается она, а не страница', async () => {
+  serve();
+  const { search, choose } = await setup();
+  await search('01089');
+  await choose('GLASER');
+
+  const table = await screen.findByRole('table');
+
+  expect(table.parentElement).toHaveClass('table-responsive');
+});
+
 test('склады позиции раскрываются: по возрастанию цены, с остатком и датой отгрузки', async () => {
   serve();
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
