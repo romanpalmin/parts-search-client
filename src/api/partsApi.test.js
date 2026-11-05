@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { server } from '../test/server.js';
 import { ApiError, buildUrl, fetchGoods } from './partsApi.js';
 
@@ -115,6 +115,50 @@ describe('fetchGoods', () => {
     test('не JSON в ответе — ApiError', async () => {
       respondWith(new HttpResponse('<html>oops</html>', { status: 200 }));
       await expect(fetchGoods({ number: '01089' })).rejects.toThrow('некорректный ответ');
+    });
+  });
+
+  describe('таймаут', () => {
+    // Настоящий таймер Node не подменяется fake timers, поэтому в тестах подставляем короткий сигнал.
+    // Сам вызов с 15000 проверяем отдельно через шпиона.
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const useShortTimeout = () => vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => realTimeout(50));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    test('запрос ограничен 15 секундами', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      server.use(http.get(API_URL, () => HttpResponse.json({ goods: [] })));
+
+      await fetchGoods({ number: '01089' });
+
+      expect(timeout).toHaveBeenCalledWith(15000);
+    });
+
+    test('сервис молчит: ApiError «не отвечает», а не вечный лоадер', async () => {
+      useShortTimeout();
+      server.use(http.get(API_URL, () => delay('infinite')));
+
+      const promise = fetchGoods({ number: '01089' });
+
+      await expect(promise).rejects.toBeInstanceOf(ApiError);
+      await expect(promise).rejects.toThrow('Сервис не отвечает');
+    });
+
+    test('заголовки пришли, а тело не дочиталось до таймаута: «не отвечает», не «некорректный ответ»', async () => {
+      // Настоящий оборванный поток тела роняет внутренности Node (undici) после теста, поэтому
+      // имитируем то, что делает fetch при срабатывании сигнала: чтение тела отклоняется с TimeoutError
+      server.use(http.get(API_URL, () => HttpResponse.json({ goods: [] })));
+      vi.spyOn(Response.prototype, 'json').mockRejectedValue(new DOMException('сигнал сработал', 'TimeoutError'));
+
+      await expect(fetchGoods({ number: '01089' })).rejects.toThrow('Сервис не отвечает');
+    });
+
+    test('сбой сети по-прежнему «не удалось связаться» (таймаут не подменяет его)', async () => {
+      server.use(http.get(API_URL, () => HttpResponse.error()));
+      await expect(fetchGoods({ number: '01089' })).rejects.toThrow('Не удалось связаться с сервисом');
     });
   });
 

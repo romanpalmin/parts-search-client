@@ -19,6 +19,11 @@ export function buildUrl({ number, brand, analogues = false }) {
   return `${import.meta.env.VITE_API_URL}?${params}`;
 }
 
+// Сколько ждём ответ сервиса, прежде чем сообщить об ошибке (иначе при молчащем сервисе лоадер крутится бесконечно)
+const REQUEST_TIMEOUT_MS = 15000;
+const isTimeout = (error) => error?.name === 'TimeoutError';
+const timeoutError = () => new ApiError('Сервис не отвечает, попробуйте позже');
+
 // «Ничего не найдено» сервис возвращает как массив с одной «пустой» позицией: пустые brand/number/name,
 // count 0 и нулевой goodsID (он непустая строка, поэтому по нему пустоту не определить)
 function isEmptyGood(good) {
@@ -32,17 +37,20 @@ function isEmptyGood(good) {
  * @returns {Promise<object[]>}
  */
 export async function fetchGoods(query) {
+  // Один сигнал на весь запрос: он обрывает и ожидание ответа, и дочитывание тела
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let response;
   try {
-    response = await fetch(buildUrl(query));
-  } catch {
-    throw new ApiError('Не удалось связаться с сервисом, проверьте соединение');
+    response = await fetch(buildUrl(query), { signal });
+  } catch (error) {
+    throw isTimeout(error) ? timeoutError() : new ApiError('Не удалось связаться с сервисом, проверьте соединение');
   }
   // Сервис отдаёт ошибки и с HTTP-статусом (403 «Empty key!»), и с 200: сначала читаем тело, потом смотрим статус
   let data = null;
   try {
     data = await response.json();
-  } catch {
+  } catch (error) {
+    if (isTimeout(error)) throw timeoutError();
     // тело не JSON: решим ниже по статусу
   }
   if (data?.error) {
