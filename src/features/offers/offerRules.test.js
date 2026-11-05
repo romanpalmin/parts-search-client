@@ -1,4 +1,4 @@
-import { compareRows, flattenGoods, getPrice, getStock, toRow } from './offerRules.js';
+import { compareRows, flattenGoods, getPrice, getStock, getWarehouses, toRow } from './offerRules.js';
 
 const warehouse = (id, price, stock) => ({ id, code: 'МСК', price, stock });
 const good = (fields) => ({
@@ -65,10 +65,68 @@ describe('flattenGoods', () => {
   });
 });
 
+describe('getWarehouses', () => {
+  const store = (id, code, price, stock, shipmentDate) => ({ id, code, price, stock, shipmentDate });
+
+  test('только склады с остатком, по возрастанию цены', () => {
+    const febi = good({
+      warehouses: [store('a', 'МСК', 1257.6, 10), store('b', 'СПБ', 1190.23, 19), store('c', 'КЗН', 100, 0)],
+    });
+    expect(getWarehouses(febi).map((item) => item.id)).toEqual(['b', 'a']);
+  });
+
+  test('оставляет id, код, остаток и цену', () => {
+    const febi = good({ warehouses: [store('a', 'МСК', 1190.23, 19, '2026-11-06T00:00:00+03:00')] });
+    expect(getWarehouses(febi)).toEqual([
+      { id: 'a', code: 'МСК', price: 1190.23, stock: 19, shipmentDate: '06.11.2026' },
+    ]);
+  });
+
+  test('склад с остатком, но без цены: цена null и в конец списка', () => {
+    const febi = good({ warehouses: [store('free', 'А', 0, 3), store('paid', 'Я', 500, 3)] });
+    expect(getWarehouses(febi).map((item) => [item.id, item.price])).toEqual([
+      ['paid', 500],
+      ['free', null],
+    ]);
+  });
+
+  test('дата отгрузки не сдвигается часовым поясом', () => {
+    const febi = good({ warehouses: [store('a', 'МСК', 1, 1, '2026-11-06T00:30:00+03:00')] });
+    expect(getWarehouses(febi)[0].shipmentDate).toBe('06.11.2026');
+  });
+
+  test('нет даты или она нечитаема: null', () => {
+    const febi = good({ warehouses: [store('a', 'МСК', 1, 1, undefined), store('b', 'МСК', 2, 1, 'скоро')] });
+    expect(getWarehouses(febi).map((item) => item.shipmentDate)).toEqual([null, null]);
+  });
+
+  test('нет складов: пустой список', () => {
+    expect(getWarehouses(good({ warehouses: [] }))).toEqual([]);
+    expect(getWarehouses(good({ warehouses: undefined }))).toEqual([]);
+  });
+
+  test('при равной цене порядок не зависит от порядка в ответе (по коду и id)', () => {
+    const a = store('1', 'МСК', 100, 1);
+    const b = store('2', 'МСК', 100, 1);
+    const c = store('1', 'СПБ', 100, 1);
+    const ids = (list) => getWarehouses(good({ warehouses: list })).map((item) => `${item.code}${item.id}`);
+    expect(ids([c, b, a])).toEqual(['МСК1', 'МСК2', 'СПБ1']);
+    expect(ids([a, c, b])).toEqual(['МСК1', 'МСК2', 'СПБ1']);
+  });
+});
+
 describe('toRow', () => {
   test('оставляет только показываемые поля, цену и остаток считает по правилам', () => {
     const febi = good({ goodsID: 'g1', count: 8, price: 1, warehouses: [warehouse('a', 900, 8)], analogues: [] });
-    expect(toRow(febi)).toEqual({ id: 'g1', brand: 'FEBI', number: '01089', name: 'Деталь', price: 900, stock: 8 });
+    expect(toRow(febi)).toEqual({
+      id: 'g1',
+      brand: 'FEBI',
+      number: '01089',
+      name: 'Деталь',
+      price: 900,
+      stock: 8,
+      warehouses: [{ id: 'a', code: 'МСК', price: 900, stock: 8, shipmentDate: null }],
+    });
   });
 });
 
