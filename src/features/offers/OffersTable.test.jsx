@@ -250,7 +250,9 @@ test('ошибка этапа 2: показан текст ошибки, таб�
 
   await choose('GLASER');
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Request quota exceeded!');
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Сервис вернул ошибку: Превышен лимит запросов по ключу (Request quota exceeded!)',
+  );
   expect(screen.queryByRole('table')).not.toBeInTheDocument();
 });
 

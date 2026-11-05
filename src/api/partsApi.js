@@ -24,6 +24,16 @@ const REQUEST_TIMEOUT_MS = 15000;
 const isTimeout = (error) => error?.name === 'TimeoutError';
 const timeoutError = () => new ApiError('Сервис не отвечает, попробуйте позже');
 
+// Известные ошибки сервиса (из документации) по-русски; сам код остаётся в скобках, чтобы его было видно при отладке.
+// Неизвестный код показываем как есть.
+const SERVICE_ERRORS = {
+  'Empty key!': 'Не указан ключ доступа',
+  'Invalid key client!': 'Неверный ключ доступа',
+  'Empty number goods!': 'Не указан артикул',
+  'Request quota exceeded!': 'Превышен лимит запросов по ключу',
+};
+const describeServiceError = (code) => (SERVICE_ERRORS[code] ? `${SERVICE_ERRORS[code]} (${code})` : code);
+
 // «Ничего не найдено» сервис возвращает как массив с одной «пустой» позицией: пустые brand/number/name,
 // count 0 и нулевой goodsID (он непустая строка, поэтому по нему пустоту не определить)
 function isEmptyGood(good) {
@@ -54,7 +64,8 @@ export async function fetchGoods(query) {
     // тело не JSON: решим ниже по статусу
   }
   if (data?.error) {
-    throw new ApiError(`Сервис вернул ошибку: ${[].concat(data.error).join(', ')}`, { status: response.status });
+    const text = [].concat(data.error).map(describeServiceError).join(', ');
+    throw new ApiError(`Сервис вернул ошибку: ${text}`, { status: response.status });
   }
   if (!response.ok) {
     throw new ApiError(`Сервис ответил ошибкой ${response.status}`, { status: response.status });

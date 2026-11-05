@@ -99,7 +99,24 @@ describe('fetchGoods', () => {
 
     test('несколько ошибок в поле error — все в сообщении', async () => {
       respondWith(HttpResponse.json({ error: ['Empty key!', 'Empty number goods!'] }));
-      await expect(fetchGoods({ number: '' })).rejects.toThrow('Empty key!, Empty number goods!');
+      await expect(fetchGoods({ number: '' })).rejects.toThrow(
+        'Не указан ключ доступа (Empty key!), Не указан артикул (Empty number goods!)',
+      );
+    });
+
+    test.each([
+      ['Empty key!', 'Не указан ключ доступа (Empty key!)'],
+      ['Invalid key client!', 'Неверный ключ доступа (Invalid key client!)'],
+      ['Empty number goods!', 'Не указан артикул (Empty number goods!)'],
+      ['Request quota exceeded!', 'Превышен лимит запросов по ключу (Request quota exceeded!)'],
+    ])('известная ошибка «%s» показывается по-русски, код остаётся в скобках', async (code, expected) => {
+      respondWith(HttpResponse.json({ error: code }, { status: 403 }));
+      await expect(fetchGoods({ number: '01089' })).rejects.toThrow(`Сервис вернул ошибку: ${expected}`);
+    });
+
+    test('неизвестный код ошибки показывается как есть', async () => {
+      respondWith(HttpResponse.json({ error: 'Something new!' }));
+      await expect(fetchGoods({ number: '01089' })).rejects.toThrow('Сервис вернул ошибку: Something new!');
     });
 
     test('HTTP 500 — ApiError со статусом', async () => {
